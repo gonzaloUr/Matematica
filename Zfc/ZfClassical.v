@@ -12,12 +12,11 @@ Proof.
     assert (¬ (∀ x, x ∈ a ↔ x ∈ ∅)).
     apply H0.
     assumption.
-    
-Qed.
+Abort.
 
 Lemma intersection_of_equiv : ∀ a x, a <> ∅ -> (x ∈ (intersection_of a) <-> ∀ y, y ∈ a -> x ∈ y).
 Proof.
-Qed.
+Abort.
 
 Lemma demorgan_intersection : ∀ u a b, u - (a ∩ b) = (u - a) ∪ (u - b).
 Proof.
@@ -31,7 +30,7 @@ Proof.
     assumption.
     elim H0. 
     intros.
-Qed.
+Abort.
 
 Lemma complement_idem : ∀ u a, a ⊆ u -> u - (u - a) = a.
 Proof.
@@ -40,7 +39,7 @@ Proof.
   intros.
   split.
   - intros.
-Qed.
+Abort.
 
 Lemma complement_union : ∀ u a, a ⊆ u -> a ∪ (u - a) = u. 
 Proof.
@@ -65,7 +64,7 @@ Proof.
   - intros.
     apply union_op_equiv.
     right.
-Qed.
+Abort.
 
 Lemma complement_subset : ∀ u a b, a ⊆ u -> b ⊆ u -> (a ⊆ b <-> (u - b) ⊆ (u - a)).
 Proof.
@@ -74,4 +73,4 @@ Proof.
   - intros.
     unfold "⊆".
     intros.
-Qed.
+Abort.

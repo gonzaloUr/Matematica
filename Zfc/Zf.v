@@ -1068,4 +1068,5 @@ Proof.
     * assumption.
 Qed.
 
-Lemma demorgan_intersection_general : ∀ u a, 
+(* TODO *)
+(* Lemma demorgan_intersection_general : ∀ u a,  *)

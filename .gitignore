@@ -46,8 +46,8 @@ time-of-build-pretty.log
 
 # Ignore coq_makefile-generated files
 .coqdeps.d
-.CoqMakefile.d
-CoqMakefile*
+.Makefile.d
+Makefile*
 Makefile.coq*
 
 _build
