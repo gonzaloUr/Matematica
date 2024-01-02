@@ -128,6 +128,41 @@ Proof.
       -- apply (proj2_sig (pairing a b)).
 Qed.
 
+Lemma pair_notation_reflexivity : ∀ a b, #{a, b} = #{b, a}.
+Proof.
+  intros.
+  apply extension.
+  split.
+  - intros.
+    assert (x = a ∨ x = b). {
+      apply pair_of_equiv.
+      assumption.
+    }
+    elim H0.
+    * intros.
+      apply pair_of_equiv.
+      right.
+      assumption.
+    * intros.
+      apply pair_of_equiv.
+      left.
+      assumption.
+  - intros.
+    assert (x = b ∨ x = a). {
+      apply pair_of_equiv.
+      assumption.
+    }
+    elim H0.
+    * intros.
+      apply pair_of_equiv.
+      right.
+      assumption.
+    * intros.
+      apply pair_of_equiv.
+      left.
+      assumption.
+Qed.
+
 Definition singleton_of a := pair_of a a.
 Definition singleton_of_proj1 a := proj1_sig (singleton_of a).
 Definition singleton_of_proj2 a := proj2_sig (singleton_of a).
@@ -159,7 +194,6 @@ Qed.
 Lemma pair_equals_pair : ∀ a b x y, #{x, y} = #{a, b} -> (x = a ∨ x = b) ∧ (y = a ∨ y = b).
 Proof.
   intros.
-
   assert (x ∈ #{x, y}).
   apply pair_of_equiv.
   left.
@@ -184,53 +218,104 @@ Proof.
   all : assumption.
 Qed.
 
-Lemma singleton_equals_pair : ∀ a b x, #{x} = #{a, b} -> x = a ∧ a = b.
+Lemma singleton_equals_pair : ∀ a b x, #{x} = #{a, b} <-> x = a ∧ a = b.
 Proof.
   intros.
-
-  assert (a ∈ #{a, b}).
-  apply pair_of_equiv.
-  left.
-  reflexivity.
-
-  assert (b ∈ #{a, b}).
-  apply pair_of_equiv.
-  right.
-  reflexivity.
-
-  rewrite <- H in H0, H1.
-
-  assert (a = x).
-  apply singleton_of_equiv.
-  assumption.
-
-  assert (b = x).
-  apply singleton_of_equiv.
-  assumption.
-
   split.
-  symmetry.
-  assumption.
-  transitivity x.
-  assumption.
-  symmetry.
-  assumption.
+  - intros.
+    assert (a ∈ #{a, b}). {
+      apply pair_of_equiv.
+      left.
+      reflexivity.
+    }
+    assert (b ∈ #{a, b}). {
+      apply pair_of_equiv.
+      right.
+      reflexivity.
+    }
+    rewrite <- H in H0, H1.
+    assert (a = x). {
+      apply singleton_of_equiv.
+      assumption.
+    }
+    assert (b = x). {
+      apply singleton_of_equiv.
+      assumption.
+    }
+    split.
+    symmetry.
+    assumption.
+    transitivity x.
+    assumption.
+    symmetry.
+    assumption.
+  - intros.
+    elim H.
+    intros.
+    rewrite H0.
+    rewrite H1.
+    reflexivity.
 Qed.
 
-Lemma singleton_equals_singleton : ∀ a x, #{x} = #{a} -> a = x.
+Lemma singleton_equals_singleton : ∀ a x, #{x} = #{a} <-> a = x.
 Proof.
   intros.
+  split.
+  - intros.
+    assert (x ∈ #{x}). {
+      apply pair_of_equiv.
+      left.
+      reflexivity.
+    }
+    rewrite H in H0.
+    symmetry.
+    apply singleton_of_equiv.
+    assumption.
+  - intros.
+    rewrite H.
+    reflexivity.
+Qed.
 
-  assert (x ∈ #{x}).
-  apply pair_of_equiv.
-  left.
-  reflexivity.
-
-  rewrite H in H0.
-
-  symmetry.
-  apply singleton_of_equiv.
-  assumption.
+Lemma pair_share_element : ∀ a b c, #{a, b} = #{a, c} <-> b = c.
+Proof.
+  intros.
+  split.
+  - intros.
+    assert ((a = a ∨ a = c) ∧ (b = a ∨ b = c)). {
+      apply pair_equals_pair.
+      assumption.      
+    }
+    elim H0.
+    intros.
+    elim H1.
+    * intros. 
+      elim H2.
+      + intros.
+        rewrite H4 in H.
+        assert (#{a} = #{a, a}) by reflexivity. 
+        rewrite <- H5 in H.
+        assert (a = a ∧ a = c). {
+          apply singleton_equals_pair.
+          assumption.
+        }
+        elim H6.
+        intros.
+        rewrite H4.
+        rewrite H8.
+        reflexivity.
+      + intros.
+        assumption.
+    * intros.
+      elim H2.  
+      + intros.
+        rewrite <- H3.
+        rewrite H4.
+        reflexivity.
+      + intros.
+        assumption.
+  - intros.
+    rewrite H.
+    reflexivity.
 Qed.
 
 Axiom union : ∀ a, { b | ∀ x y, x ∈ y ∧ y ∈ a -> x ∈ b }.
@@ -406,9 +491,11 @@ Proof.
     assumption.
     elim H0.
     intros.
-    right; assumption.
+    right.
+    assumption.
     intros.
-    left; assumption.
+    left.
+    assumption.
   - intros.
     apply union_op_equiv.
     assert (x ∈ b ∨ x ∈ a).
@@ -416,9 +503,11 @@ Proof.
     assumption.
     elim H0.
     intros.
-    right; assumption.
+    right.
+    assumption.
     intros.
-    left; assumption.
+    left.
+    assumption.
 Qed.
 
 Lemma union_op_assoc : ∀ a b c, union_op a (union_op b c) = union_op (union_op a b) c.
@@ -634,7 +723,8 @@ Proof.
     assert (x ∈ a ∧ x ∈ b).
     apply intersection_op_equiv.
     assumption.
-    elim H0; intros.
+    elim H0.
+    intros.
     apply intersection_op_equiv.
     split.
     all: assumption.
@@ -642,7 +732,8 @@ Proof.
     assert (x ∈ b ∧ x ∈ a).
     apply intersection_op_equiv.
     assumption.
-    elim H0; intros.
+    elim H0.
+    intros.
     apply intersection_op_equiv.
     split.
     all: assumption.
@@ -658,11 +749,13 @@ Proof.
     assert (x ∈ a ∧ x ∈ (intersection_op b c)).
     apply intersection_op_equiv.
     assumption.
-    elim H0; intros.
+    elim H0.
+    intros.
     assert (x ∈ b ∧ x ∈ c).
     apply intersection_op_equiv.
     assumption.
-    elim H3; intros.
+    elim H3.
+    intros.
     assert (x ∈ (intersection_op a b)).
     apply intersection_op_equiv.
     split.
@@ -676,11 +769,13 @@ Proof.
     assert (x ∈ (intersection_op a b) ∧ x ∈ c).
     apply intersection_op_equiv.
     assumption.
-    elim H0; intros.
+    elim H0.
+    intros.
     assert (x ∈ a ∧ x ∈ b).
     apply intersection_op_equiv.
     assumption.
-    elim H3; intros.
+    elim H3.
+    intros.
     assert (x ∈ (intersection_op b c)).
     apply intersection_op_equiv.
     split.
@@ -702,7 +797,8 @@ Proof.
     assert (x ∈ a ∧ x ∈ a).
     apply intersection_op_equiv.
     assumption.
-    elim H0; intros.
+    elim H0.
+    intros.
     assumption.
   - intros.
     apply intersection_op_equiv.
@@ -724,7 +820,8 @@ Proof.
       assert (x ∈ a ∧ x ∈ b).
       apply intersection_op_equiv.
       assumption.
-      elim H1; intros.
+      elim H1.
+      intros.
       assumption.
     * intros.
       assert (x ∈ b).
@@ -760,7 +857,8 @@ Proof.
     assert (x ∈ a ∧ x ∈ (b ∪ c)).
     apply intersection_op_equiv.
     assumption.
-    elim H0; intros.
+    elim H0.
+    intros.
     assert (x ∈ b ∨ x ∈ c).
     apply union_op_equiv.
     assumption.
@@ -792,7 +890,8 @@ Proof.
       assert (x ∈ a ∧ x ∈ b).
       apply intersection_op_equiv.
       assumption.
-      elim H2; intros.
+      elim H2.
+      intros.
       assert (x ∈ (b ∪ c)).
       apply union_op_equiv.
       left.
@@ -804,7 +903,8 @@ Proof.
       assert (x ∈ a ∧ x ∈ c).
       apply intersection_op_equiv.
       assumption.
-      elim H2; intros.
+      elim H2.
+      intros.
       assert (x ∈ (b ∪ c)).
       apply union_op_equiv.
       right.
@@ -841,7 +941,8 @@ Proof.
       assert (x ∈ b ∧ x ∈ c).
       apply intersection_op_equiv.
       assumption.
-      elim H2; intros.
+      elim H2.
+      intros.
       assert (x ∈ (a ∪ b)).
       apply union_op_equiv.
       right.
@@ -1068,5 +1169,209 @@ Proof.
     * assumption.
 Qed.
 
-(* TODO *)
-(* Lemma demorgan_intersection_general : ∀ u a,  *)
+(* TODO: demorgan_general *)
+
+Lemma subset_of_power : ∀ a b, b ⊆ (power_of a) -> union_of b ⊆ a.
+Proof.
+  intros.
+  unfold "⊆" in H.
+  assert (∀ x, x ∈ b -> x ⊆ a). {
+    intros.
+    apply power_of_equiv.
+    apply H.
+    assumption.
+  }
+  unfold "⊆".
+  intros.
+  assert (∃ c, x ∈ c ∧ c ∈ b). {
+    apply union_of_equiv.
+    assumption.
+  }
+  elim H2.
+  intros.
+  elim H3.
+  intros.
+  assert (x0 ⊆ a). {
+    apply H0.
+    assumption.
+  }
+  unfold "⊆" in H6.
+  apply H6.
+  assumption.
+Qed.
+
+Definition ord_pair_of a b := #{#{a}, #{a, b}}.
+Notation "#( A , B )" := (ord_pair_of A B) (at level 0, A at level 99, B at level 99) : set_scope.
+
+Lemma ord_pair_equals_ord_pair : ∀ a b x y, #(a, b) = #(x, y) <-> a = x ∧ b = y.
+Proof.
+  intros.
+  split.
+  - intros.
+    unfold "#( _ , _ )" in H.
+    assert ((#{a} = #{x} ∨ #{a} = #{x, y}) ∧ (#{a, b} = #{x} ∨ #{a, b} = #{x, y})). {
+      apply pair_equals_pair.
+      assumption.
+    }
+    elim H0. 
+    intros.
+    elim H1.
+    * intros.
+      rewrite H3 in H.
+      assert (#{a, b} = #{x, y}). {
+        apply (pair_share_element #{x} #{a, b} #{x, y}).
+        assumption.
+      }
+      assert (x = a). {
+        apply singleton_equals_singleton.
+        assumption.
+      }
+      rewrite H5 in H4.
+      assert (b = y). {
+        apply (pair_share_element a b y).
+        assumption.
+      }
+      split.
+      + symmetry.
+        assumption.
+      + assumption.
+    * intros.
+      assert (a = x ∧ x = y). {
+        apply singleton_equals_pair.
+        assumption.
+      }
+      elim H4.
+      intros.
+      rewrite <- H6 in H.
+      assert (#{x} = #{x, x}) by reflexivity.
+      rewrite <- H7 in H.
+      assert (#{#{x}, #{x}} = #{#{x}}) by reflexivity.
+      rewrite H8 in H.
+      symmetry in H.
+      assert (#{x} = #{a} ∧ #{a} = #{a, b}). {
+        apply singleton_equals_pair.
+        assumption.
+      }
+      elim H9.
+      intros.
+      assert (a = a ∧ a = b). {
+        apply singleton_equals_pair.
+        assumption.
+      }
+      elim H12.
+      intros.
+      split.
+      + assumption.
+      + rewrite <- H6.
+        rewrite <- H14.
+        assumption.
+  - intros.
+    elim H.
+    intros.
+    rewrite H0, H1.
+    reflexivity.
+Qed.
+
+Lemma ord_pair_in_power : ∀ a b A B, a ∈ A ∧ b ∈ B -> #(a, b) ∈ (power_of (power_of (A ∪ B))).
+Proof.
+  intros.
+  elim H.
+  intros.
+  unfold "#( _ , _ )".
+  apply power_of_equiv. 
+  unfold "⊆".
+  intros.
+  apply power_of_equiv.
+  unfold "⊆".
+  intro y.
+  intros.
+  apply union_op_equiv.
+  assert (x = #{a} ∨ x = #{a, b}). {
+    apply pair_of_equiv.
+    assumption.
+  }
+  elim H4.
+  - intros.
+    rewrite H5 in H3.
+    assert (y = a). {
+      apply singleton_of_equiv.
+      assumption.
+    }
+    rewrite <- H6 in H0.
+    left.
+    assumption.
+  - intros.
+    rewrite H5 in H3.
+    assert (y = a ∨ y = b). {
+      apply pair_of_equiv.
+      assumption.
+    }
+    elim H6.
+    * intros.
+      rewrite <- H7 in H0.
+      left.
+      assumption.
+    * intros.
+      rewrite <- H7 in H1.
+      right.
+      assumption.
+Qed.
+
+Definition cartesian_product a b := proj1_sig (specification (power_of (power_of (a ∪ b))) (λ x, ∃ y z, y ∈ a ∧ z ∈ b ∧ x = #(y, z))).
+
+Notation "A × B" := (cartesian_product A B) (at level 0, right associativity) : set_scope.
+
+Lemma cartesian_product_equiv : ∀ a b A B, a ∈ A ∧ b ∈ B <-> #(a, b) ∈ A × B.
+Proof.
+  intros.
+  split.
+  - intros.
+    unfold "_ × _".
+    apply specification_belongs.
+    split.
+    * apply ord_pair_in_power.
+      assumption.
+    * exists a, b.
+      split.
+      + apply H.
+      + split.
+        -- apply H.
+        -- reflexivity.
+  - intros.
+    unfold "×" in H.
+    assert (#(a, b) ∈ (power_of (power_of (A ∪ B))) ∧ ∃ y z, y ∈ A ∧ z ∈ B ∧ #(a, b) = #(y, z)). {
+      apply (specification_belongs (power_of (power_of (A ∪ B))) (λ x, ∃ y z, y ∈ A ∧ z ∈ B ∧ x = #(y, z)) #(a, b)).
+      assumption.
+    }
+    elim H0.
+    intros.
+    elim H2. 
+    intros.
+    elim H3.
+    intros.
+    elim H4.
+    intros.
+    elim H6.
+    intros.
+    assert (a = x ∧ b = x0). {
+      apply ord_pair_equals_ord_pair.
+      assumption.
+    }
+    elim H9.
+    intros.
+    rewrite <- H10 in H5.
+    rewrite <- H11 in H7.
+    split. 
+    assumption.
+    assumption.
+Qed.
+
+Definition relation_from_to r a b := r ⊆ a × b.
+Definition relation_in r a := relation_from_to r a a.
+Definition domain r a b := specification a (λ x, ∃ y, y ∈ b ∧ #(x, y) ∈ r).
+Definition range r a b := specification b (λ y, ∃ x, x ∈ a ∧ #(x, y) ∈ r).
+
+Definition reflexive r a := ∀ x, x ∈ a -> #(x, x) ∈ r.
+Definition symetric r a := ∀ x y, x ∈ a ∧ y ∈ a -> (#(x, y) ∈ r -> #(y, x) ∈ r).
+Definition transitive r a := ∀ x y z, x ∈ a ∧ y ∈ a ∧ z ∈ a -> (#(x, y) ∈ r ∧ #(y, z) ∈ r -> #(x, z) ∈ r).
+Definition antisymetric r a :=
