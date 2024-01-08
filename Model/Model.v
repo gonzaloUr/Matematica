@@ -1,75 +1,107 @@
-Require Import Coq.Strings.String.
-Require Import Coq.Lists.ListSet.
-Require Import Coq.Lists.List.
+Require Import Seq.
+Declare Scope model_scope.
 
-Section Formule.
-
-Inductive term : Set :=
-  | variable : string -> term
-  | constant : string -> term
-  | functor : string -> list term -> term.
-
-Fixpoint FV (t : term) : set string :=
-  match t with
-  | variable s => cons s (empty_set string)
-  | constant _ => empty_set string
-  | functor _ fs => fold_left (set_union string_dec) (map FV fs) (empty_set string)
-  end.
-
-Definition atomic := {x : term | FV x = empty_set string}.
-
-Inductive StateFormula : Set :=
-  | t : StateFormula
-  | atom : atomic -> StateFormula
-  | conj : StateFormula -> StateFormula -> StateFormula
-  | not : StateFormula -> StateFormula
-  | some : PathFormula -> StateFormula
-  | every : PathFormula -> StateFormula
-with PathFormula : Set :=
-  | next : StateFormula -> PathFormula
-  | until : StateFormula -> StateFormula -> PathFormula.
-
-End Formule.
-
-Section TS.
-
-Variable A B : Set.
-Variable A_eq_dec : forall x y : A, {x = y} + {x <> y}.
-Variable B_eq_dec : forall x y : B, {x = y} + {x <> y}.
-
-Record TS := {
-  states : set A ;
-  actions : set B ;
-  transition : A -> B -> option A ;
-  initial : set A ;
-  label : atomic -> A -> option bool
-}.
-
-CoInductive Path (ts : TS) : A -> A -> Prop :=
-  | path0 : forall s : A, Path ts s s
-  | pathS : forall (s0 s1 e : A) (p : Path ts s1 e) (a : B), transition ts s0 a = Some s1 -> Path ts s0 e.
-
-Inductive FinitePath (ts : TS) : forall (s e : A) (p : Path ts s e), Prop :=
-  | finite_path_0 : forall s : A, FinitePath ts s s (path0 ts s)
-  | finite_path_S : forall (s0 s1 e : A) (p : Path ts s1 e) (a : B) (p_trans : transition ts s0 a = Some s1), FinitePath ts s1 e p -> FinitePath ts s0 e (pathS ts s0 s1 e p a p_trans).
-
-Lemma path_trans : forall (ts : TS) (s se e : A) (p0 : Path ts s se) (p1 : Path ts se e), FinitePath ts s se p0 -> {p2 : Path ts s e | FinitePath ts s e p2}.
-Proof.
-  intros.
-  inversion H.
-  - exists p
-Qed.
-
-Inductive satisfy : TS -> A -> StateFormula -> Prop :=
-  | satisfyT : forall (ts : TS) (s : A), satisfy ts s t
-  | satisfyA : forall (ts : TS) (s : A) (a : atomic), label ts a s = Some true -> satisfy ts s (atom a)
-  | satisfyNot : forall (ts : TS) (s : A) (f : StateFormula), satisfy ts s f -> satisfy ts s (not f)
-  | satisfyAnd : forall (ts : TS) (s : A) (f g : StateFormula), satisfy ts s f -> satisfy ts s g -> satisfy ts s (conj f g)
-  | satisfySome : forall (ts : TS) (s e : A) (p : Path ts s e) (pf : PathFormula), satisfyPath ts s e p pf -> satisfy ts s (some pf)
-  | satisfyEvery : forall (ts : TS) (s : A) (pf : PathFormula), (forall (e : A) (p : Path ts s e), satisfyPath ts s e p pf) -> satisfy ts s (every pf)
-with satisfyPath : forall (ts : TS) (s e : A), Path ts s e -> PathFormula -> Prop :=
-  | satisfyNext : forall (ts : TS) (s0 s1 e : A) (p : Path ts s1 e) (a : B) (p_trans : transition ts s0 a = Some s1) (f : StateFormula), 
-    satisfy ts s1 f -> satisfyPath ts s0 e (pathS ts s0 s1 e p a p_trans) (next f).
-  | satisfyUntil : forall (ts : TS) (s e : A) (p : Path ts s e) (f0 f1 : StateFormula), 
-
+Module Type TS.
+  Parameter State : Set.
+  Parameter Action : Set.
+  Parameter Atomic : Set.
+  Parameter start : State.
+  Parameter transition : State -> Action -> option State.
+  Parameter label : State -> Atomic -> bool.
 End TS.
+
+Module Theory (ts : TS).
+  Import ts.
+
+  Inductive StateFormula : Set :=
+    | Always : StateFormula
+    | Atom : Atomic -> StateFormula
+    | And : StateFormula -> StateFormula -> StateFormula
+    | Not : StateFormula -> StateFormula
+    | One : PathFormula -> StateFormula
+    | All : PathFormula -> StateFormula
+  with PathFormula : Set :=
+    | Next : StateFormula -> PathFormula
+    | Globally : StateFormula -> PathFormula
+    | Eventually : StateFormula -> PathFormula
+    | Until : StateFormula -> StateFormula -> PathFormula.
+
+  Notation "'Exists' x" := (some x) (at level 65, right associativity) : model_scope.
+  Notation "'Forall' x" := (every x) (at level 65, right associativity) : model_scope.
+  Notation "x /\ y" := (conj x y) (at level 80, right associativity) : model_scope.
+  Notation "~ x" := (not x) (at level 75, right associativity) : model_scope.
+  Notation "'X x" := (next x) (at level 65, right associativity) : model_scope.
+  Notation "'A' x" := (always x) (at level 65, right associativity) : model_scope.
+  Notation "'E' x" := (eventually x) (at level 65, right associativity) : model_scope.
+  Notation "x 'U' y" := (until x y) (at level 60, right associativity) : model_scope.
+
+  Definition matches (s : State) (ss : Seq State) (accs : Seq Action) :=
+    forall (i : nat) (si ssi : State) (ai : Action),
+      nth ss i = Some si ->
+      nth ss (i + 1) = Some ssi ->
+      nth accs i = Some ai ->
+      transition si ai = Some ssi.
+
+  Inductive Path := path : forall (s : State) (ss : Seq State) (accs : Seq Action), matches s ss accs -> Path.
+
+  Inductive satisfy : State -> StateFormula -> bool -> Prop :=
+    | satisfyT : forall (s : State), satisfy s true true
+    | satisfyA0 : forall (s : State) (a : atomic),
+        label ts a s = true ->
+        satisfy s (atom a) true
+    | satisfyA1 : forall (s : State) (a : atomic),
+        label ts a s = true ->
+        satisfy s (atom a) true
+    | satisfyNot : forall (s : State) (f : StateFormula), 
+        satisfy s f false -> 
+        satisfy s (not f) true
+    | satisfyAnd : forall (s : State) (f g : StateFormula),
+        satisfy s f true ->
+        satisfy s g true ->
+        satisfy s (conj f g) true
+    | satisfySome : forall (s : State) (p : Path s) (pf : PathFormula),
+        satisfyPath s p pf true ->
+        satisfy s (some pf) true
+    | satisfyEvery : forall (s : State) (pf : PathFormula),
+        (forall (p : Path s), satisfyPath s p pf true) ->
+        satisfy s (every pf) true
+  with satisfyPath : forall s : State, Path s -> PathFormula -> bool -> Prop :=
+    | satisfyNext : forall (s0 s1 : State) (p : Path s1) (a : Action) (f : StateFormula),
+        transition State Action ts s0 a = Some s1 ->
+        satisfy s1 f true ->
+        satisfyPath s0 (pathS s0 s1 p a P) (next f) true
+    | satisfyAlways : forall (s : State) (p : Path s) (f : StateFormula) (i : nat) (si : State),
+      index s p i = Some si -> 
+      satisfy si f true -> 
+      satisfyPath s p (always f) true
+    | satisfyEventually : forall (s : State) (p : Path s) (f : StateFormula),
+      (exists (i : nat) (si : State), index s p i = Some si /\ satisfy si f true) ->
+      satisfyPath s p (eventually f) true
+    | satisfyUntil : forall (s : State) (p : Path s) (f0 f1 : StateFormula), 
+      (exists (j : nat) (sj : State), index s p j = Some sj /\ satisfy sj f1 true /\
+        (forall (k : nat) (sk : State), 
+          k < j ->
+          index s p k = Some sk -> 
+          satisfy sk f0 true)) ->
+      satisfyPath s p (until f0 f1) true.
+
+  Notation "s |= x" := (satisfy s x true) (at level 70, no associativity) : model_scope.
+  Notation "s * p |= x" := (satisfyPath s p x true) (at level 70, no associativity) : model_scope.
+
+  Lemma infinitely_often : forall (s : State) (f : StateFormula),
+    s |= A F A G f <-> forall p : Path s, exists is : Stream nat, forall (n : nat) (sn : State), index s p (Str_nth n is) = Some sn -> sn |= f.
+  Proof.
+    split.
+    - intros.
+      inversion H.
+      specialize (H2 p).
+      inversion H2.
+      elim H6.
+      intros.
+      elim H7.
+      intros.
+      elim H8.
+      intros.
+      inversion H10.
+  Abort.
+End Theory.

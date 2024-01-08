@@ -1368,10 +1368,4 @@ Qed.
 
 Definition relation_from_to r a b := r ⊆ a × b.
 Definition relation_in r a := relation_from_to r a a.
-Definition domain r a b := specification a (λ x, ∃ y, y ∈ b ∧ #(x, y) ∈ r).
-Definition range r a b := specification b (λ y, ∃ x, x ∈ a ∧ #(x, y) ∈ r).
-
-Definition reflexive r a := ∀ x, x ∈ a -> #(x, x) ∈ r.
-Definition symetric r a := ∀ x y, x ∈ a ∧ y ∈ a -> (#(x, y) ∈ r -> #(y, x) ∈ r).
-Definition transitive r a := ∀ x y z, x ∈ a ∧ y ∈ a ∧ z ∈ a -> (#(x, y) ∈ r ∧ #(y, z) ∈ r -> #(x, z) ∈ r).
-Definition antisymetric r a :=
+(* Definition domain r a := specification a (λ x, ∃ y, y ∈ ) *)
