@@ -44,8 +44,6 @@ Definition nth (n : nat) (s : Seq) :=
   | Some ys => hd ys
   end.
 
-CoFixpoint iterate (f : A -> A) (x : A) := Cons x (iterate f (f x)).
-
 Lemma unfold_seq_eq : forall s, s = unfold_seq s.
 Proof.
   intros.
@@ -199,11 +197,29 @@ Proof.
         assumption.
 Qed.
 
+End Seq.
+
+Section Iterate.
+
+Variable A : Type.
+
+CoFixpoint iterate (f : A -> A) (x : A) := Cons x (iterate f (f x)).
+
 Fixpoint n_compose (n : nat) (f : A -> A) : A -> A :=
   match n with
   | 0 => id
   | S m => fun x => f (n_compose m f x)
   end.
+
+Lemma n_compose_f_out : forall n f x, n_compose n f (f x) = f (n_compose n f x).
+Proof.
+  intros.
+  induction n.
+  - reflexivity.
+  - simpl.
+    rewrite IHn.
+    reflexivity.
+Qed.
 
 Lemma iterate_nth : forall n x f, nth n (iterate f x) = Some (n_compose n f x).
 Proof.
@@ -224,6 +240,55 @@ Proof.
     simpl.
     pose proof (IHn (f x) f).
     unfold nth in H.
+    assert (n_compose n f (f x) = f (n_compose n f x)) by apply n_compose_f_out.
+    rewrite H0 in H.
+    assumption.
 Qed.
 
-End Seq.
+End Iterate.
+
+Section Nats.
+
+Definition inc (n : nat) := n + 1.
+Definition nats (n : nat) := iterate inc n.
+
+Lemma n_compose_inc : forall n m, n_compose n inc m = m + n.
+Proof.
+  intros.
+  induction m.
+  - induction n.
+    * reflexivity.
+    * simpl.
+      rewrite IHn.
+      unfold inc.
+      lia.
+  - induction n.
+    * simpl.
+      unfold id.
+      lia.
+    * simpl.
+      simpl in IHm.
+      unfold inc in IHm at 1.
+      assert (m + S n = S (m + n)) by lia.
+      rewrite H in IHm.
+      assert (n_compose n inc m + 1 = S (n_compose n inc m)) by lia.
+      rewrite H0 in IHm.
+      injection IHm.
+      intros.
+      pose proof (IHn H1).
+      rewrite H2.
+      unfold inc.
+      lia.
+Qed.
+
+Lemma nth_nats : forall n m, nth m (nats n) = Some (n + m).
+Proof.
+  intros.
+  unfold nats.
+  pose proof (iterate_nth m n inc).
+  rewrite H.
+  apply f_equal.
+  apply (n_compose_inc m n).
+Qed.
+
+End Nats.

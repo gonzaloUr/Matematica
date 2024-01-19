@@ -1,5 +1,7 @@
+Set Implicit Arguments.
 Require Import Lia.
 Require Import Seq.
+Require Import Util.
 Declare Scope model_scope.
 Open Scope model_scope.
 
@@ -35,10 +37,7 @@ Notation "x 'U' y" := (Until x y) (at level 60, right associativity) : model_sco
 
 Definition matches (ss : Seq State) (accs : Seq Action) :=
   forall (i : nat) (si ssi : State) (ai : Action),
-    nth i ss = Some si ->
-    nth (i + 1) ss = Some ssi ->
-    nth i accs = Some ai ->
-    transition si ai = Some ssi.
+    si <- nth i ss ;; ai <- nth i accs ;; transition si ai = nth (i + 1) ss.
 
 Lemma matches_nth_tl : forall (n : nat) (ss ss_n : Seq State) (accs accs_n : Seq Action), 
   matches ss accs -> nth_tl n ss = Some ss_n -> nth_tl n accs = Some accs_n -> matches ss_n accs_n.
@@ -49,7 +48,7 @@ Proof.
   unfold matches in H.
   specialize (H (n + i) si ssi ai).
   apply H.
-  - assert (nth ss_n i = nth ss (n + i)). {
+  - assert (nth i ss_n = nth (n + i) ss). {
       apply nth_nth_tl.
       assumption.
     } 
