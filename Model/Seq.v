@@ -107,12 +107,35 @@ Proof.
       assumption.
 Qed.
 
+Lemma nth_none_inv : forall m, nth m Nil = None.
+Proof.
+  intros.
+  destruct m.
+  - unfold nth.
+    reflexivity.
+  - unfold nth.
+    reflexivity.
+Qed.
+
 Lemma nth_tl_none_nth_none : forall n s, nth_tl n s = None -> nth n s = None.
 Proof.
   intros.
   unfold nth.
   rewrite H.
   reflexivity.
+Qed.
+
+Lemma nth_none_nth_tl_none_or_nil : forall n s, nth n s = None -> nth_tl n s = None \/ nth_tl n s = Some Nil.
+Proof.
+  intros.
+  unfold nth in H.
+  destruct (nth_tl n s).
+  - destruct s0.
+    * right.
+      reflexivity.
+    * discriminate H.
+  - left.
+    reflexivity.
 Qed.
 
 Lemma nth_tl_none_plus_m : forall n m s, nth_tl n s = None -> nth_tl (m + n) s = None.
@@ -195,6 +218,35 @@ Proof.
         simpl.
         unfold nth in H0.
         assumption.
+Qed.
+
+Lemma nth_none_plus_m : forall n m s, nth n s = None -> nth (m + n) s = None.
+Proof.
+  intros.
+  pose proof (nth_none_nth_tl_none_or_nil n s H).
+  elim H0.
+  - intros.
+    pose proof (nth_tl_none_plus_m n m s H1).
+    unfold nth.
+    rewrite H2.
+    reflexivity.
+  - intros.
+    pose proof (nth_nth_tl n m s).
+    rewrite H1 in H2.
+    simpl in H2.
+    assert (nth m Nil = None) by apply nth_none_inv.
+    rewrite H3 in H2. 
+    symmetry in H2.
+    pose proof (nth_none_nth_tl_none_or_nil (m + n) s H2).
+    elim H4.
+    * intros.
+      unfold nth.
+      rewrite H5.
+      reflexivity.
+    * intros.
+      unfold nth.
+      rewrite H5.
+      reflexivity.
 Qed.
 
 End Seq.
@@ -292,3 +344,15 @@ Proof.
 Qed.
 
 End Nats.
+
+Section Zip.
+
+Variable A B : Type.
+
+CoFixpoint zip (xs : Seq A) (ys : Seq B) : Seq (A * B) :=
+  match xs, ys with
+  | Cons x xs', Cons y ys' => Cons (x, y) (zip xs' ys')
+  | _, _ => Nil (A * B)
+  end.
+
+End Zip.
