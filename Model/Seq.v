@@ -1,10 +1,13 @@
-Set Implicit Arguments.
 Require Import Util.
 Require Import Lia.
+
+Set Implicit Arguments.
 
 Section Seq.
 
 Variable A : Type.
+
+(* Type definition and basic operations *)
 
 CoInductive Seq :=
   | Nil : Seq
@@ -22,10 +25,22 @@ Definition hd (s : Seq) :=
   | Cons x _ => Some x
   end.
 
+Definition hd_default (default : A) (s : Seq) :=
+  match s with
+  | Nil => default
+  | Cons x _ => x
+  end.
+
 Definition tl (s : Seq) :=
   match s with
   | Nil => None
   | Cons _ ys => Some ys
+  end.
+
+Definition tl_default (default : Seq) (s : Seq) :=
+  match s with
+  | Nil => default
+  | Cons _ ys => ys
   end.
 
 Fixpoint nth_tl (n : nat) (s : Seq) :=
@@ -38,11 +53,23 @@ Fixpoint nth_tl (n : nat) (s : Seq) :=
     end
   end.
 
+Fixpoint nth_tl_default (default : Seq) (n : nat) (s : Seq) :=
+  match n with
+  | 0 => s
+  | S m =>
+    match tl s with
+    | None => default
+    | Some ys => nth_tl_default default m ys
+    end
+  end.
+
 Definition nth (n : nat) (s : Seq) :=
   match nth_tl n s with
   | None => None
   | Some ys => hd ys
   end.
+
+(* unfold equality *)
 
 Lemma unfold_seq_eq : forall s, s = unfold_seq s.
 Proof.
@@ -51,6 +78,8 @@ Proof.
   - reflexivity.
   - reflexivity.
 Qed.
+
+(* Inversion lemmas *)
 
 Lemma hd_inv_nil : forall s : Seq, hd s = None -> s = Nil.
 Proof.
@@ -107,7 +136,7 @@ Proof.
       assumption.
 Qed.
 
-Lemma nth_none_inv : forall m, nth m Nil = None.
+Lemma nth_inv_none : forall m, nth m Nil = None.
 Proof.
   intros.
   destruct m.
@@ -115,6 +144,41 @@ Proof.
     reflexivity.
   - unfold nth.
     reflexivity.
+Qed.
+
+Lemma nth_inv_some : forall m s t, nth m s = Some t -> exists a ss, s = Cons a ss.
+Proof.
+  intros.
+  destruct s.
+  - pose proof (nth_inv_none m).
+    rewrite H0 in H.
+    discriminate H.
+  - exists a.
+    exists s.
+    reflexivity.
+Qed.
+
+(* Useful lemmas *)
+
+Lemma tl_default_eq_tl : forall s x, tl_default x s = match tl s with Some y => y | None => x end.
+Proof.
+  intros.
+  destruct s.
+  - reflexivity.
+  - reflexivity.
+Qed.
+
+Lemma nth_tl_default_eq_nth_tl : forall n s x, nth_tl_default x n s = match nth_tl n s with Some y => y | None => x end.
+Proof.
+  intro.
+  induction n.
+  - intros.
+    reflexivity.
+  - intros.
+    destruct s.
+    * reflexivity.
+    * simpl.
+      apply IHn. 
 Qed.
 
 Lemma nth_tl_none_nth_none : forall n s, nth_tl n s = None -> nth n s = None.
@@ -220,6 +284,21 @@ Proof.
         assumption.
 Qed.
 
+Lemma nth_of_tl : forall n s, x <- tl s ;; nth n x = nth (1 + n) s.
+Proof.
+  intros.
+  apply bind_eq.
+  - intros.
+    pose proof (tl_inv_nil s H).
+    rewrite H0.
+    apply nth_inv_none.
+  - intros.
+    unfold nth.
+    simpl.
+    rewrite <- H.
+    reflexivity.
+Qed.
+
 Lemma nth_none_plus_m : forall n m s, nth n s = None -> nth (m + n) s = None.
 Proof.
   intros.
@@ -234,7 +313,7 @@ Proof.
     pose proof (nth_nth_tl n m s).
     rewrite H1 in H2.
     simpl in H2.
-    assert (nth m Nil = None) by apply nth_none_inv.
+    assert (nth m Nil = None) by apply nth_inv_none.
     rewrite H3 in H2. 
     symmetry in H2.
     pose proof (nth_none_nth_tl_none_or_nil (m + n) s H2).

@@ -1,16 +1,17 @@
-Set Implicit Arguments.
 Require Import Lia.
 Require Import Seq.
 Require Import Util.
+
+Set Implicit Arguments.
 Declare Scope model_scope.
 Open Scope model_scope.
 
 Parameter State : Set.
 Parameter Action : Set.
+Parameter transition : State -> Action -> State -> Prop.
 Parameter Atomic : Set.
 Parameter start : State.
-Parameter transition : State -> Action -> option State.
-Parameter label : State -> Atomic -> bool.
+Parameter label : State -> Atomic -> Prop.
 
 Inductive StateFormula : Set :=
   | Always : StateFormula
@@ -35,174 +36,139 @@ Notation "'G' x" := (Globally x) (at level 65, right associativity) : model_scop
 Notation "'E' x" := (Eventually x) (at level 65, right associativity) : model_scope.
 Notation "x 'U' y" := (Until x y) (at level 60, right associativity) : model_scope.
 
-Definition matches (ss : Seq State) (accs : Seq Action) := forall i,
-  si <- nth i ss ;; ai <- nth i accs ;; transition si ai = nth (i + 1) ss.
+Definition Path : Type := (Seq State) * (Seq Action).
 
-Lemma matches_nth_tl : forall n ss ss_n accs accs_n,
-  matches ss accs -> nth_tl n ss = Some ss_n -> nth_tl n accs = Some accs_n -> matches ss_n accs_n.
+Definition hd_Path (p : Path) := hd (fst p).
+
+Definition tl_Path (p : Path) :=
+  let (ss, accs) := p in
+  match tl ss, tl accs with
+  | Some tl_ss, Some tl_accs => Some (pair tl_ss tl_accs)
+  | _, _ => None
+  end.
+
+Definition nth_tl_Path (n : nat) (p : Path) :=
+  let (ss, accs) := p in
+  match nth_tl n ss, nth_tl n accs with
+  | Some ss', Some accs' => Some (pair ss' accs')
+  | _, _ => None
+  end.
+
+Definition nth_Path (n : nat) (p : Path) := nth n (fst p).
+
+Definition matches (ss : Seq State) (accs : Seq Action) := forall i si ai ssi,
+  nth i ss = Some si ->
+  nth i accs = Some ai ->
+  nth (i + 1) ss = Some ssi ->
+  transition si ai ssi.
+
+Lemma matches_nil : matches (Nil State) (Nil Action).
+Proof.
+  unfold matches.
+  intros.
+  pose proof (nth_inv_none State i).
+  rewrite H2 in H.
+  discriminate H.
+Qed.
+
+Lemma matches_tl_default : forall ss accs, 
+  matches ss accs -> matches (tl_default (Nil State) ss) (tl_default (Nil Action) accs).
 Proof.
   intros.
   unfold matches.
   unfold matches in H.
   intros.
-  - apply bind_eq.
-    * intros.
-      assert (i + 1 = 1 + i) by lia.
-      rewrite H3.
-      apply (nth_none_plus_m i 1 ss_n).
+  apply (H (1 + i)).
+  - pose proof (nth_of_tl i ss).
+    pose proof (tl_default_eq_tl ss (Nil State)).
+    destruct ss.
+    * rewrite H4 in H0.
+      simpl in H0.
+      pose proof (nth_inv_none State i).
+      rewrite H5 in H0.
+      discriminate H0.
+    * rewrite H4 in H0.
+      simpl in H0.
+      unfold nth.
+      simpl.
+      unfold nth in H0.
       assumption.
-    * intros.
-      apply bind_eq.
-      + intros.
-        specialize (H (i + n)).
-        pose proof (nth_nth_tl n (i + 1) ss).
-        rewrite H0 in H4.
-        simpl in H4.
-        rewrite H4.
-
-        pose proof (nth_nth_tl n i accs).
-        rewrite H1 in H5.
-        simpl in H5.
-        rewrite H3 in H5.
-        rewrite <- H5 in H.
-
-        pose proof (nth_nth_tl n i ss).
-        rewrite H0 in H6.
-        simpl in H6.
-        rewrite <- H2 in H6.
-        rewrite <- H6 in H.
-
-        simpl in H. 
-        symmetry in H.
-        assert (i + 1 + n = i + n + 1 ) by lia.
-        rewrite H7.
-        assumption.
-      + intros.
-        specialize (H (i + n)).
-
-        pose proof (nth_nth_tl n i accs).
-        rewrite H1 in H4.
-        simpl in H4.
-        rewrite <- H3 in H4.
-        rewrite <- H4 in H.
-
-        pose proof (nth_nth_tl n i ss).
-        rewrite H0 in H5.
-        simpl in H5.
-        rewrite <- H2 in H5.
-        rewrite <- H5 in H.
-
-        simpl in H.
-        rewrite H.
-        pose proof (nth_nth_tl n (i + 1) ss).
-        rewrite H0 in H6.
-        simpl in H6.
-        symmetry.
-        assert (i + n + 1 = i + 1 + n) by lia.
-        rewrite H7.
-        assumption.
+  - pose proof (nth_of_tl i accs).
+    pose proof (tl_default_eq_tl accs (Nil Action)).
+    destruct accs.
+    * rewrite H4 in H1.
+      simpl in H1.
+      pose proof (nth_inv_none Action i).
+      rewrite H5 in H1.
+      discriminate H1.
+    * rewrite H4 in H1.
+      simpl in H1.
+      unfold nth.
+      simpl.
+      unfold nth in H1.
+      assumption.
+  - pose proof (nth_of_tl (i + 1) ss).
+    pose proof (tl_default_eq_tl ss (Nil State)).
+    destruct ss.
+    * rewrite H4 in H2.
+      simpl in H2.
+      pose proof (nth_inv_none State (i + 1)).
+      rewrite H5 in H2.
+      discriminate H2.
+    * rewrite H4 in H2.
+      simpl in H2.
+      unfold nth.
+      simpl.
+      unfold nth in H0.
+      assumption.
 Qed.
 
-Lemma matches_tl : forall (ss ss_tl : Seq State) (accs accs_tl : Seq Action),
-  matches ss accs -> tl ss = Some ss_tl -> tl accs = Some accs_tl -> matches ss_tl accs_tl.
+Lemma matches_nth_tl_default : forall n ss accs, 
+  matches ss accs -> matches (nth_tl_default (Nil State) n ss) (nth_tl_default (Nil Action) n accs).
 Proof.
   intros.
-  apply (matches_nth_tl 1 H).
-  - unfold nth_tl.
-    rewrite H0.
-    reflexivity.
-  - unfold nth_tl.
-    rewrite H1.
-    reflexivity.
+  unfold matches.
+  unfold matches in H.
+  intros.
+  apply (H (i + n)).
+  - pose proof (nth_tl_default_eq_nth_tl n ss (Nil State)).
+    rewrite H3 in H0.
+    pose proof (nth_nth_tl n i ss).
+    rewrite <- H4.
+    unfold "_ <- _ ;; _".
+    destruct (nth_tl n ss).
+    * assumption.
+    * pose proof (nth_inv_none State i).
+      rewrite H5 in H0.
+      discriminate H0.
+  - pose proof (nth_tl_default_eq_nth_tl n accs (Nil Action)).
+    rewrite H3 in H1.
+    pose proof (nth_nth_tl n i accs). 
+    rewrite <- H4.
+    unfold " _ <- _ ;; _".
+    destruct (nth_tl n accs).
+    * assumption.
+    * pose proof (nth_inv_none Action i).
+      rewrite H5 in H1.
+      discriminate H1.
+  - pose proof (nth_tl_default_eq_nth_tl n ss (Nil State)).
+    rewrite H3 in H2.
+    pose proof (nth_nth_tl n (i + 1) ss).
+    assert (i + 1 + n = i + n + 1) by lia.
+    rewrite H5 in H4.
+    rewrite <- H4.
+    unfold "_ <- _ ;; _".
+    destruct (nth_tl n ss).
+    * assumption.
+    * pose proof (nth_inv_none State (i + 1)).
+      rewrite H6 in H2.
+      discriminate H2.
 Qed.
-
-Inductive Path := path : forall (ss : Seq State) (accs : Seq Action), matches ss accs -> Path.
-
-Definition hd_Path (p : Path) :=
-  let (ss, _, _) := p in hd ss.
-
-Section OptionEq.
-
-Variable A : Type.
-
-Definition option_with_eq (x : option A) : option {y : A | x = Some y} := 
-  match x as o return option {y : A | o = Some y} with
-  | Some a => Some (exist (fun y : A => Some a = Some y) a eq_refl)
-  | None => None
-  end.
-
-Lemma option_with_eq_nil : forall x, option_with_eq x = None -> x = None.
-Proof.
-  intros.
-  destruct x.
-  - discriminate H.
-  - reflexivity.
-Qed.
-
-End OptionEq.
-
-Definition tl_Path (p : Path) : option Path :=
-  let (ss, accs, P) := p in
-  match option_with_eq (tl ss), option_with_eq (tl accs) with
-  | Some (exist _ ss_tl P_ss_tl), Some (exist _ accs_tl P_accs_tl) =>
-    Some (path (matches_tl P P_ss_tl P_accs_tl))
-  | _, _ => None
-  end.
-
-Definition nth_tl_Path (n : nat) (p : Path) : option Path :=
-  let (ss, accs, P) := p in
-  match option_with_eq (nth_tl n ss), option_with_eq (nth_tl n accs) with
-  | Some (exist _ ss_n P_ss_n), Some (exist _ accs_n P_accs_n) => 
-    Some (path (matches_nth_tl n P P_ss_n P_accs_n))
-  | _, _ => None
-  end.
-
-Definition nth_Path (n : nat) (p : Path) :=
-  match nth_tl_Path n p with
-  | Some p' => hd_Path p'
-  | None => None
-  end.
-
-Lemma nth_tl_Path_none : forall ss accs P n,
-  nth_tl_Path n (@path ss accs P) = None -> nth_tl n ss = None \/ nth_tl n accs = None.
-Proof.
-  intros.
-  unfold nth_tl_Path in H.
-  pose proof (@option_with_eq_nil (Seq State) (nth_tl n ss)).
-  pose proof (@option_with_eq_nil (Seq Action) (nth_tl n accs)).
-  destruct (option_with_eq (nth_tl n ss)).
-  - destruct (option_with_eq (nth_tl n accs)).
-    * destruct s.
-      destruct s0.
-      discriminate H.
-    * right.
-      apply H1.
-      reflexivity.
-  - left.
-    apply H0.
-    reflexivity.
-Qed.
-
-Lemma nth_nth_tl_path : forall p n i, x <- nth_tl_Path n p ;; nth_Path i x = nth_Path (n + i) p.
-Proof.
-  intros.
-  apply bind_eq.
-  - intros.
-    destruct p.
-    pose proof (@nth_tl_Path_none ss accs m n H).
-    unfold nth_Path.
-    unfold nth_tl_Path.
-    elim H0.
-    * intros.
-      pose proof (nth_tl_none_plus_m n i ss H1).
-      assert (i + n = n + i) by lia.
-      rewrite  H3 in H2.
-      rewrite H2.
-Abort.
 
 Inductive satisfy : State -> StateFormula -> bool -> Prop :=
   | satisfyAlways : forall s : State, satisfy s Always true
-  | satisfyAtom : forall (s : State) (a : Atomic), satisfy s (Atom a) (label s a)
+  | satisfyAtomTrue : forall (s : State) (a : Atomic), label s a -> satisfy s (Atom a) true
+  | satisfyAtomFalse : forall (s : State) (a : Atomic), ~ label s a -> satisfy s (Atom a) false
   | satisfyNot : forall (s : State) (f : StateFormula) (b : bool), 
       satisfy s f b ->
       satisfy s (Not f) (negb b)
@@ -249,11 +215,27 @@ with satisfyPath : Path -> PathFormula -> bool -> Prop :=
       (forall (k : nat) (sk : State), k < n -> nth_Path k p = Some sk -> satisfy sk f0 true) ->
       satisfyPath p (Until f0 f1) true
   | satisfyUntilFalse : forall (p : Path) (f0 f1 : StateFormula),
-      (forall (n : nat) (sn : State), nth_Path n p = Some sn -> satisfy sn f1 false \/ (exists (k : nat) (sk : State), k < n -> nth_Path k p = Some sk -> satisfy sk f0 false)) ->
+      (forall (n : nat) (sn : State), 
+        nth_Path n p = Some sn -> 
+        satisfy sn f1 false \/ (exists (k : nat) (sk : State), k < n -> nth_Path k p = Some sk -> satisfy sk f0 false)) ->
       satisfyPath p (Until f0 f1) false.
 
 Notation "s |= x" := (satisfy s x true) (at level 70, no associativity) : model_scope.
 Notation "s * p |= x" := (satisfyPath s p x true) (at level 70, no associativity) : model_scope.
+
+Lemma nth_tl_Path_trans : forall n m p, nth_tl_Path m (nth_tl_Path n p) = nth_tl_Path (m + n) p.
+Proof.
+  intros.
+  destruct p.
+  unfold nth_tl_Path.
+Abort.
+
+Lemma nth_nth_tl_Path : forall n m p, nth_Path m (nth_tl_Path n p) = nth_Path (m + n) p.
+Proof.
+  intros.
+  unfold nth_Path.
+  apply f_equal.
+Abort.
 
 Lemma many_often : forall (s : State) (f : StateFormula), s |= Forall E Forall G f <-> 
   forall p : Path, hd_Path p = Some s -> exists is : Seq nat, forall (n i : nat) (si : State), nth n is = Some i -> nth_Path i p = Some si -> si |= f.
@@ -261,26 +243,30 @@ Proof.
   intros.
   split.
   - intros.
-    inversion H.
-    specialize (H3 p H0).
-    inversion H3.
-    inversion H7.
-    assert (exists pn : Path, nth_tl_Path n p = Some pn). {
-      unfold nth_Path in H5.
+    inversion_clear H.
+    specialize (H1 p H0).
+    inversion_clear H1.
+    inversion_clear H2.
+    assert (exists pn : Path, nth_tl_Path n p = pn). {
+      unfold nth_Path in H.
       destruct (nth_tl_Path n p).
-      - exists p1.
-        reflexivity.
-      - discriminate H5.
+      exists (path m).
+      reflexivity.
     }
-    elim H11.
+    elim H2.
     intros.
-    unfold nth_Path in H5.
-    rewrite H12 in H5.
-    specialize (H10 x H5).
-    inversion H10.
+    unfold nth_Path in H.
+    rewrite H3 in H.
+    specialize (H1 x H).
+    inversion_clear H1.
     exists (nats n).
     intros.
     pose proof (nth_nats n n0).
+    rewrite H6 in H1.
+    injection H1.
+    intros.
+    rewrite <- H7 in H5.
+
     rewrite H16 in H18.
     injection H18.
     intros.
