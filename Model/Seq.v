@@ -299,6 +299,16 @@ Proof.
     reflexivity.
 Qed.
 
+Lemma nth_of_tl_default : forall n s default, nth n (tl_default default s) = nth (1 + n) s.
+Proof.
+  intros.
+  pose proof (tl_default_eq_tl s default).
+  rewrite H.
+  pose proof (nth_of_tl n s).
+  rewrite <- H0.
+
+Abort.
+
 Lemma nth_none_plus_m : forall n m s, nth n s = None -> nth (m + n) s = None.
 Proof.
   intros.

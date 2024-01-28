@@ -36,26 +36,6 @@ Notation "'G' x" := (Globally x) (at level 65, right associativity) : model_scop
 Notation "'E' x" := (Eventually x) (at level 65, right associativity) : model_scope.
 Notation "x 'U' y" := (Until x y) (at level 60, right associativity) : model_scope.
 
-Definition Path : Type := (Seq State) * (Seq Action).
-
-Definition hd_Path (p : Path) := hd (fst p).
-
-Definition tl_Path (p : Path) :=
-  let (ss, accs) := p in
-  match tl ss, tl accs with
-  | Some tl_ss, Some tl_accs => Some (pair tl_ss tl_accs)
-  | _, _ => None
-  end.
-
-Definition nth_tl_Path (n : nat) (p : Path) :=
-  let (ss, accs) := p in
-  match nth_tl n ss, nth_tl n accs with
-  | Some ss', Some accs' => Some (pair ss' accs')
-  | _, _ => None
-  end.
-
-Definition nth_Path (n : nat) (p : Path) := nth n (fst p).
-
 Definition matches (ss : Seq State) (accs : Seq Action) := forall i si ai ssi,
   nth i ss = Some si ->
   nth i accs = Some ai ->
@@ -71,7 +51,7 @@ Proof.
   discriminate H.
 Qed.
 
-Lemma matches_tl_default : forall ss accs, 
+Lemma matches_tl_default : forall ss accs,
   matches ss accs -> matches (tl_default (Nil State) ss) (tl_default (Nil Action) accs).
 Proof.
   intros.
@@ -165,6 +145,31 @@ Proof.
       discriminate H2.
 Qed.
 
+Definition Path : Type := (Seq State) * (Seq Action).
+
+Definition correct (p : Path) := matches (fst p) (snd p).
+
+Definition hd_Path (p : Path) := hd (fst p).
+
+Definition tl_Path (p : Path) := (tl_default (Nil State) (fst p), tl_default (Nil Action) (snd p)).
+
+Definition nth_tl_Path (n : nat) (p : Path) := (nth_tl_default (Nil State) n (fst p), nth_tl_default (Nil Action) n (snd p)).
+
+Definition nth_Path (n : nat) (p : Path) := nth n (fst p).
+
+Lemma correct_tl : forall p, correct p -> correct (tl_Path p).
+Proof.
+  intros.  
+  unfold correct.
+  unfold matches.
+  intros.
+  unfold correct in H.
+  unfold matches in H.
+  unfold tl_Path in H0, H1, H2.
+  simpl in H0, H1, H2.
+  apply (H (1 + i)).
+Abort.
+
 Inductive satisfy : State -> StateFormula -> bool -> Prop :=
   | satisfyAlways : forall s : State, satisfy s Always true
   | satisfyAtomTrue : forall (s : State) (a : Atomic), label s a -> satisfy s (Atom a) true
@@ -222,20 +227,6 @@ with satisfyPath : Path -> PathFormula -> bool -> Prop :=
 
 Notation "s |= x" := (satisfy s x true) (at level 70, no associativity) : model_scope.
 Notation "s * p |= x" := (satisfyPath s p x true) (at level 70, no associativity) : model_scope.
-
-Lemma nth_tl_Path_trans : forall n m p, nth_tl_Path m (nth_tl_Path n p) = nth_tl_Path (m + n) p.
-Proof.
-  intros.
-  destruct p.
-  unfold nth_tl_Path.
-Abort.
-
-Lemma nth_nth_tl_Path : forall n m p, nth_Path m (nth_tl_Path n p) = nth_Path (m + n) p.
-Proof.
-  intros.
-  unfold nth_Path.
-  apply f_equal.
-Abort.
 
 Lemma many_often : forall (s : State) (f : StateFormula), s |= Forall E Forall G f <-> 
   forall p : Path, hd_Path p = Some s -> exists is : Seq nat, forall (n i : nat) (si : State), nth n is = Some i -> nth_Path i p = Some si -> si |= f.
